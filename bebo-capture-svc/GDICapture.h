@@ -71,6 +71,10 @@ private:
 	BYTE* negotiated_argb_buffer;
 	GDIFrame* last_frame;
 
+	HRGN hrgn_background;
+	HRGN hrgn_visual;
+	HRGN hrgn_foreground;
+
 
 	GDIFrame* CaptureFrame();
 };
