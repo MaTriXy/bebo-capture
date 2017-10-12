@@ -71,6 +71,9 @@ CPushPinDesktop::CPushPinDesktop(HRESULT *phr, CGameCapture *pFilter, int captur
 	m_iCaptureConfigHeight(0),
 	m_rtFrameLength(UNITS/30),
 	readRegistryEvent(NULL),
+	m_iCaptureConfigWidth(0),
+	m_iCaptureConfigHeight(0),
+	m_rtFrameLength(UNITS/30),
 	init_hooks_thread(NULL)
 {
 	info("CPushPinDesktop");
@@ -158,8 +161,7 @@ int CPushPinDesktop::GetConstraintsFromRegistry(void) {
 			info("CaptureFPS: %d", newCaptureFPS);
                         numberOfChanges++;
 		}
-        }
-
+	}
 	return numberOfChanges;
 }
 
@@ -170,10 +172,14 @@ int CPushPinDesktop::GetGameFromRegistry(void) {
 
 	numberOfChanges += GetConstraintsFromRegistry();
 
-	if (RegGetBeboSZ(TEXT("CaptureType"), data, &size) == S_OK) {
+	if (registry.HasValue(TEXT("CaptureType"))) {
+		std::wstring data;
+		registry.ReadValue(TEXT("CaptureType"), &data);
+
 		int old = m_iCaptureType;
-		char type[1024];
-		sprintf(type, "%S", data);
+		char text[1024];
+		sprintf(text, "%S", data.c_str());
+
 		if (strcmp(type, "desktop") == 0) {
 			m_iCaptureType = CAPTURE_DESKTOP;
 		} else if (strcmp(type, "inject") == 0) {
