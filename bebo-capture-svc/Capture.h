@@ -9,10 +9,12 @@
 #define CAPTURE_H
 
 #include <strsafe.h>
+#include <string>
 #include "DesktopCapture.h"
 #include "GameCapture.h"
 #include "GDICapture.h"
 #include "CommonTypes.h"
+#include "registry.h"
 
 /*
 // UNITS = 10 ^ 7  
@@ -47,7 +49,7 @@ class CGameCapture : public CSource // public IAMFilterMiscFlags // CSource is C
 
 private:
     // Constructor is private because you have to use CreateInstance
-    CGameCapture(IUnknown *pUnk, HRESULT *phr);
+    CGameCapture(IUnknown *pUnk, HRESULT *phr, GUID clsid, int captureType);
     ~CGameCapture();
 
     CPushPinDesktop *m_pPin;
@@ -55,7 +57,9 @@ public:
     //////////////////////////////////////////////////////////////////////////
     //  IUnknown
     //////////////////////////////////////////////////////////////////////////
-    static CUnknown * WINAPI CreateInstance(LPUNKNOWN lpunk, HRESULT *phr);
+    static CUnknown * WINAPI CreateInstance_Game(LPUNKNOWN lpunk, HRESULT *phr);
+    static CUnknown * WINAPI CreateInstance_Desktop(LPUNKNOWN lpunk, HRESULT *phr);
+    static CUnknown * WINAPI CreateInstance_Window(LPUNKNOWN lpunk, HRESULT *phr);
     STDMETHODIMP QueryInterface(REFIID riid, void **ppv);
 
 	// ?? compiler error that these be required here? huh?
@@ -86,9 +90,10 @@ public:
 
 protected:
 
+	RegKey registry;
+
     //int m_FramesWritten;				// To track where we are
     REFERENCE_TIME m_rtFrameLength; // also used to get the fps
-	// float m_fFps; use the method to get this now
 	REFERENCE_TIME previousFrame;
 
     int getNegotiatedFinalWidth();
@@ -105,38 +110,23 @@ protected:
 
 	HANDLE init_hooks_thread;
 
-    //CMediaType m_MediaType;
-    //CImageDisplay m_Display;            // Figures out our media type for us
-	
 	CGameCapture* m_pParent;
 
 	DesktopCapture* m_pDesktopCapture;
-	GDICapture* m_pGDICapture;
-
-	HDC hScrDc;
-	HBITMAP     hRawBitmap;
-
-	//CCritSec m_cSharedState;            // Protects our internal state use CAutoLock cAutoLock(m_pFilter->pStateLock()); instead
+	GDICapture*		m_pGDICapture;
 
 	bool m_bFormatAlreadySet;
-	bool m_bConvertToI420;
-	bool m_bUseCaptureBlt;
 	bool m_bCaptureMouse;
 	bool m_bCaptureOnce;
 	volatile bool active;
-	//int m_iScreenBitDepth;
 	bool m_bCaptureAntiCheat;
 
 	float GetFps();
 	float GetMaxFps() { return MAX_FPS; };
 
-    BYTE *pOldData;
-
 	int m_iCaptureType;
 	int m_iDesktopNumber;
 	int m_iDesktopAdapterNumber;
-	int getCaptureDesiredFinalWidth();
-	int getCaptureDesiredFinalHeight();
 
 	QWORD m_iCaptureHandle;
 
@@ -168,7 +158,7 @@ public:
     HRESULT STDMETHODCALLTYPE GetNumberOfCapabilities(int *piCount, int *piSize);
     HRESULT STDMETHODCALLTYPE GetStreamCaps(int iIndex, AM_MEDIA_TYPE **pmt, BYTE *pSCC);
 
-    CPushPinDesktop(HRESULT *phr, CGameCapture *pFilter);
+    CPushPinDesktop(HRESULT *phr, CGameCapture *pFilter, int captureType);
     ~CPushPinDesktop();
 
     // Override the version that offers exactly one media type

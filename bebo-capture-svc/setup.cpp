@@ -20,6 +20,11 @@
 
 HMODULE g_hModule = NULL;
 
+const int FILTER_SIZE = 3;
+const CLSID FILTER_CLSID[FILTER_SIZE] = {CLSID_PushSourceDesktop_Game, CLSID_PushSourceDesktop_Desktop, CLSID_PushSourceDesktop_Window};
+const wchar_t *FILTER_NAME[FILTER_SIZE] = {L"bebo-capture-game", L"bebo-capture-desktop", L"bebo-capture-window"};
+
+
 extern "C" {
 	extern char *bebo_find_file(const char *file);
 }
@@ -68,36 +73,59 @@ const AMOVIESETUP_PIN sudOutputPinDesktop =
     &sudOpPinTypes  // Pointer to media types.
 };
 
-const AMOVIESETUP_FILTER sudPushSourceDesktop =
+const AMOVIESETUP_FILTER sudPushSourceDesktopGame =
 {
-    &CLSID_PushSourceDesktop,// Filter CLSID
+    &CLSID_PushSourceDesktop_Game,// Filter CLSID
     g_wszPushDesktop,       // String name
     MERIT_DO_NOT_USE,       // Filter merit
     1,                      // Number pins
     &sudOutputPinDesktop    // Pin details
 };
 
+const AMOVIESETUP_FILTER sudPushSourceDesktopWindow =
+{
+    &CLSID_PushSourceDesktop_Window,// Filter CLSID
+    g_wszPushDesktop,       // String name
+    MERIT_DO_NOT_USE,       // Filter merit
+    1,                      // Number pins
+    &sudOutputPinDesktop    // Pin details
+};
+
+const AMOVIESETUP_FILTER sudPushSourceDesktopDesktop =
+{
+    &CLSID_PushSourceDesktop_Desktop,// Filter CLSID
+    g_wszPushDesktop,       // String name
+    MERIT_DO_NOT_USE,       // Filter merit
+    1,                      // Number pins
+    &sudOutputPinDesktop    // Pin details
+};
 
 // List of class IDs and creator functions for the class factory. This
 // provides the link between the OLE entry point in the DLL and an object
 // being created. The class factory will call the static CreateInstance.
 // We provide a set of filters in this one DLL.
 
-CFactoryTemplate g_Templates[2] = 
+CFactoryTemplate g_Templates[3] = 
 {
-    { 
-      g_wszPushDesktop,               // Name
-      &CLSID_PushSourceDesktop,       // CLSID
-      CGameCapture::CreateInstance, // Method to create an instance of MyComponent
-      NULL,                           // Initialization function
-      &sudPushSourceDesktop           // Set-up information (for filters)
-    }, {
-      g_wszBeboCaptureApi,               // Name
-	  &CLSID_BeboCaptureApi,
-      CBeboCapture::CreateInstance, // Method to create an instance of MyComponent
-      NULL,                           // Initialization function
-      NULL, // Set-up information (for filters)
-    }
+	{
+	  g_wszPushDesktop,               // Name
+	  &CLSID_PushSourceDesktop_Game,       // CLSID
+	  CGameCapture::CreateInstance_Game, // Method to create an instance of MyComponent
+	  NULL,                           // Initialization function
+	  &sudPushSourceDesktopGame           // Set-up information (for filters)
+	}, {
+	  g_wszPushDesktop,               // Name
+	  &CLSID_PushSourceDesktop_Window,       // CLSID
+	  CGameCapture::CreateInstance_Window, // Method to create an instance of MyComponent
+	  NULL,                           // Initialization function
+	  &sudPushSourceDesktopWindow           // Set-up information (for filters)
+	}, {
+	  g_wszPushDesktop,               // Name
+	  &CLSID_PushSourceDesktop_Desktop,       // CLSID
+	  CGameCapture::CreateInstance_Desktop, // Method to create an instance of MyComponent
+	  NULL,                           // Initialization function
+	  &sudPushSourceDesktopDesktop           // Set-up information (for filters)
+	}
 };
 
 int g_cTemplates = sizeof(g_Templates) / sizeof(g_Templates[0]);    
@@ -122,50 +150,55 @@ STDAPI RegisterFilters( BOOL bRegister )
     MultiByteToWideChar(CP_ACP, 0L, achTemp, lstrlenA(achTemp) + 1, 
                        achFileName, NUMELMS(achFileName));
   
-    hr = CoInitialize(0);
-    if(bRegister)
-    { 
-		info("achFileName: %S", achFileName);
-        hr = AMovieSetupRegisterServer(CLSID_PushSourceDesktop, L"bebo-game-capture", achFileName, L"Both", L"InprocServer32");
-    }
+    hr = CoInitialize(NULL);
 
-    if( SUCCEEDED(hr) )
-    {
-        IFilterMapper2 *fm = 0;
-        hr = CreateComObject( CLSID_FilterMapper2, IID_IFilterMapper2, fm );
-        if( SUCCEEDED(hr) )
-        {
-            if(bRegister)
-            {
-                IMoniker *pMoniker = 0;
-                REGFILTER2 rf2;
-                rf2.dwVersion = 1;
-                rf2.dwMerit = MERIT_DO_NOT_USE;
-                rf2.cPins = 1;
-                rf2.rgPins = &sudOutputPinDesktop;
-				// this is the name that actually shows up in VLC et al. weird
-                hr = fm->RegisterFilter(CLSID_PushSourceDesktop, L"bebo-game-capture", &pMoniker, &CLSID_CQzFilterClassManager, NULL, &rf2);
-            }
-            else
-            {
-                hr = fm->UnregisterFilter(&CLSID_CQzFilterClassManager, 0, CLSID_PushSourceDesktop);
-            }
-        }
+	for (int i = 0; i < FILTER_SIZE; i++) {
+		if (bRegister)
+		{
+			info("achFileName: %S", achFileName);
+			hr = AMovieSetupRegisterServer(FILTER_CLSID[i], FILTER_NAME[i], achFileName, L"Both", L"InprocServer32");
+		}
 
-      // release interface
-      //
-      if(fm)
-          fm->Release();
-    }
+		if (SUCCEEDED(hr))
+		{
+			IFilterMapper2 *fm = 0;
+			hr = CreateComObject(CLSID_FilterMapper2, IID_IFilterMapper2, fm);
+			if (SUCCEEDED(hr))
+			{
+				if (bRegister)
+				{
+					IMoniker *pMoniker = 0;
+					REGFILTER2 rf2;
+					rf2.dwVersion = 1;
+					rf2.dwMerit = MERIT_DO_NOT_USE;
+					rf2.cPins = 1;
+					rf2.rgPins = &sudOutputPinDesktop;
+					// this is the name that actually shows up in VLC et al. weird
+					hr = fm->RegisterFilter(FILTER_CLSID[i], FILTER_NAME[i], &pMoniker, &CLSID_CQzFilterClassManager, NULL, &rf2);
+				}
+				else
+				{
+					hr = fm->UnregisterFilter(&CLSID_CQzFilterClassManager, 0, FILTER_CLSID[i]);
+				}
+			}
 
-    if( SUCCEEDED(hr) && !bRegister )
-        hr = AMovieSetupUnregisterServer( CLSID_PushSourceDesktop );
+			// release interface
+			//
+			if (fm)
+				fm->Release();
+		}
+
+		if (SUCCEEDED(hr) && !bRegister) {
+			hr = AMovieSetupUnregisterServer(FILTER_CLSID[i]);
+		}
+	}
 
     CoFreeUnusedLibraries();
     CoUninitialize();
 	info("RegisterFilters %d - DONE %x", bRegister, hr);
     return hr;
 }
+
 BOOL   HelperWriteKey(
 	HKEY roothk,
 	LPCWSTR lpSubKey,

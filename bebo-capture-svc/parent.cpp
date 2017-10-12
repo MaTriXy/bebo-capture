@@ -10,12 +10,12 @@
  *
  **********************************************/
 
-CGameCapture::CGameCapture(IUnknown *pUnk, HRESULT *phr)
-           : CSource(NAME("PushSourceDesktop Parent"), pUnk, CLSID_PushSourceDesktop)
+CGameCapture::CGameCapture(IUnknown *pUnk, HRESULT *phr, GUID clsid, int captureType)
+           : CSource(NAME("PushSourceDesktop Parent"), pUnk, clsid)
 {
     // The pin magically adds itself to our pin array.
 	// except its not an array since we just have one [?]
-    m_pPin = new CPushPinDesktop(phr, this);
+    m_pPin = new CPushPinDesktop(phr, this, captureType);
 
 	if (phr)
 	{
@@ -35,11 +35,43 @@ CGameCapture::~CGameCapture() // parent destructor
 }
 
 
-CUnknown * WINAPI CGameCapture::CreateInstance(IUnknown *pUnk, HRESULT *phr)
+CUnknown * WINAPI CGameCapture::CreateInstance_Game(IUnknown *pUnk, HRESULT *phr)
 {
 	// the first entry point
 	setupLogging();
-    CGameCapture *pNewFilter = new CGameCapture(pUnk, phr);
+    CGameCapture *pNewFilter = new CGameCapture(pUnk, phr, CLSID_PushSourceDesktop_Game, CAPTURE_INJECT);
+
+	if (phr)
+	{
+		if (pNewFilter == NULL) 
+			*phr = E_OUTOFMEMORY;
+		else
+			*phr = S_OK;
+	}
+    return pNewFilter;
+}
+
+CUnknown * WINAPI CGameCapture::CreateInstance_Window(IUnknown *pUnk, HRESULT *phr)
+{
+	// the first entry point
+	setupLogging();
+    CGameCapture *pNewFilter = new CGameCapture(pUnk, phr, CLSID_PushSourceDesktop_Window, CAPTURE_GDI);
+
+	if (phr)
+	{
+		if (pNewFilter == NULL) 
+			*phr = E_OUTOFMEMORY;
+		else
+			*phr = S_OK;
+	}
+    return pNewFilter;
+}
+
+CUnknown * WINAPI CGameCapture::CreateInstance_Desktop(IUnknown *pUnk, HRESULT *phr)
+{
+	// the first entry point
+	setupLogging();
+    CGameCapture *pNewFilter = new CGameCapture(pUnk, phr, CLSID_PushSourceDesktop_Desktop, CAPTURE_DESKTOP);
 
 	if (phr)
 	{
