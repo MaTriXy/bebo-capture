@@ -313,6 +313,7 @@ int CPushPinDesktop::GetGameFromRegistry(void) {
 			info("CaptureOnce: %d", m_bCaptureAntiCheat);
 			numberOfChanges++;
 		}
+
 	}
 
 	return numberOfChanges;
