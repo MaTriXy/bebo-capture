@@ -315,7 +315,6 @@ int CPushPinDesktop::GetGameFromRegistry(void) {
 		}
 	}
 
-
 	return numberOfChanges;
 }
 
