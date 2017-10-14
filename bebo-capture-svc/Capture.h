@@ -128,6 +128,7 @@ protected:
 	int m_iDesktopNumber;
 	int m_iDesktopAdapterNumber;
 
+	HANDLE readRegistryEvent;
 	QWORD m_iCaptureHandle;
 
 public:
@@ -136,8 +137,9 @@ public:
 	HRESULT OnThreadCreate(void);
 	HRESULT OnThreadDestroy(void);
 	HRESULT OnThreadStartPlay(void);
-	void GetGameFromRegistry(void);
-	void GetConstraintsFromRegistry(void);
+	int GetGameFromRegistry(void);
+	int GetConstraintsFromRegistry(void);
+	void CleanupCapture();
 	HRESULT Inactive(void);
 	HRESULT Active(void);
 
