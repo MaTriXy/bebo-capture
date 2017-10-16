@@ -20,9 +20,16 @@
 
 HMODULE g_hModule = NULL;
 
+#if MULTISOURCE_SUPPORT
 const int FILTER_SIZE = 3;
 const CLSID FILTER_CLSID[FILTER_SIZE] = {CLSID_PushSourceDesktop_Game, CLSID_PushSourceDesktop_Desktop, CLSID_PushSourceDesktop_Window};
 const wchar_t *FILTER_NAME[FILTER_SIZE] = {L"bebo-capture-game", L"bebo-capture-desktop", L"bebo-capture-window"};
+#else
+const int FILTER_SIZE = 1;
+const CLSID FILTER_CLSID[FILTER_SIZE] = {CLSID_PushSourceDesktop_Game};
+const wchar_t *FILTER_NAME[FILTER_SIZE] = { L"bebo-game-capture" };
+#endif
+
 
 
 extern "C" {
@@ -105,6 +112,8 @@ const AMOVIESETUP_FILTER sudPushSourceDesktopDesktop =
 // being created. The class factory will call the static CreateInstance.
 // We provide a set of filters in this one DLL.
 
+
+#if MULTISOURCE_SUPPORT
 CFactoryTemplate g_Templates[3] = 
 {
 	{
@@ -127,6 +136,21 @@ CFactoryTemplate g_Templates[3] =
 	  &sudPushSourceDesktopDesktop           // Set-up information (for filters)
 	}
 };
+
+#else
+
+CFactoryTemplate g_Templates[1] = 
+{
+	{
+	  g_wszPushDesktop,               // Name
+	  &CLSID_PushSourceDesktop_Game,       // CLSID
+	  CGameCapture::CreateInstance_Game, // Method to create an instance of MyComponent
+	  NULL,                           // Initialization function
+	  &sudPushSourceDesktopGame           // Set-up information (for filters)
+	}
+};
+
+#endif
 
 int g_cTemplates = sizeof(g_Templates) / sizeof(g_Templates[0]);    
 

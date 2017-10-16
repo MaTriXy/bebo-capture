@@ -60,9 +60,13 @@ CPushPinDesktop::CPushPinDesktop(HRESULT *phr, CGameCapture *pFilter, int captur
 	m_pCaptureWindowClassName(NULL),
 	m_pCaptureExeFullName(NULL),
 	game_context(NULL),
-    m_iCaptureType(captureType),
-	m_pDesktopCapture(captureType == CAPTURE_DESKTOP ? new DesktopCapture : NULL),
-	m_pGDICapture(captureType == CAPTURE_GDI ? new GDICapture : NULL),
+#if MULTISOURCE_SUPPORT
+	m_iCaptureType(captureType),
+#else
+	m_iCaptureType(-1),
+#endif
+	m_pDesktopCapture(new DesktopCapture),
+	m_pGDICapture(new GDICapture),
 	m_iDesktopNumber(-1),
 	m_iDesktopAdapterNumber(-1),
 	m_iCaptureHandle(-1),
@@ -86,6 +90,7 @@ CPushPinDesktop::CPushPinDesktop(HRESULT *phr, CGameCapture *pFilter, int captur
 		registry.Open(HKEY_CURRENT_USER, L"Software\\Bebo\\GdiCapture", KEY_READ);
 		break;
 	default:
+		registry.Open(HKEY_CURRENT_USER, L"Software\\Bebo\\GameCapture", KEY_READ);
 		break;
 	}
 
@@ -122,6 +127,7 @@ CPushPinDesktop::CPushPinDesktop(HRESULT *phr, CGameCapture *pFilter, int captur
 
 	// now read some custom settings...
 	WarmupCounter();
+
 	GetGameFromRegistry();
 }
 
@@ -293,7 +299,7 @@ int CPushPinDesktop::GetGameFromRegistry(void) {
 		m_bCaptureAntiCheat = (qout == 1);
 		if (oldAntiCheat != m_bCaptureAntiCheat) {
 			info("CaptureAntiCheat: %d", m_bCaptureAntiCheat);
-                        numberOfChanges++;
+			numberOfChanges++;
 		}
 	}
 
@@ -305,7 +311,7 @@ int CPushPinDesktop::GetGameFromRegistry(void) {
 		m_bCaptureOnce = (qout == 1);
 		if (oldCaptureOnce != m_bCaptureAntiCheat) {
 			info("CaptureOnce: %d", m_bCaptureAntiCheat);
-                        numberOfChanges++;
+			numberOfChanges++;
 		}
 	}
 
