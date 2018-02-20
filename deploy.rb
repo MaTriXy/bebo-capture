@@ -7,7 +7,7 @@ require 'rbconfig'
 
 include Open3
 
-JENKINS_URL = "https://usw1-jenkins-002.blab.im/job/bebo-capture"
+JENKINS_URL = "https://usw1-jenkins-002.blab.im/job/bebo-capture/"
 IS_WINDOWS = (RbConfig::CONFIG['host_os'] =~ /mswin|mingw|cygwin/)
 
 curl = IS_WINDOWS ? "./curl/bin/curl.exe -L --write-out %{http_code}" : "curl -s --write-out %{http_code}"
