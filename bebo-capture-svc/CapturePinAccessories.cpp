@@ -1,7 +1,7 @@
 #include <streams.h>
 
 #include "Capture.h"
-#include "CaptureGuids.h"
+#include "names_and_ids.h"
 #include "DibHelper.h"
 #include "Logging.h"
 
@@ -21,19 +21,19 @@ const int PIN_HEIGHT[PIN_RESOLUTION_SIZE] = { 480, 480, 480,
 const REFERENCE_TIME PIN_FPS[PIN_FPS_SIZE] = { UNITS / 60 };
 
 // logging stuff
-int DisplayRECT(char *buffer, size_t count, const RECT& rc)
+int DisplayRECT(wchar_t *buffer, size_t count, const RECT& rc)
 {
-	return snprintf(buffer, count, "%dx%d[%d:%d]",
+	return _snwprintf(buffer, count, L"%dx%d[%d:%d]",
 		rc.right - rc.left,
 		rc.top - rc.bottom,
 		rc.right,
 		rc.bottom);
 }
 
-int DisplayBITMAPINFO(char *buffer, size_t count, const BITMAPINFOHEADER* pbmi)
+int DisplayBITMAPINFO(wchar_t *buffer, size_t count, const BITMAPINFOHEADER* pbmi)
 {
 	if (pbmi->biCompression < 256) {
-		return snprintf(buffer, count, "[bitmap: %dx%dx%d bit  (%d)] size:%d (%d/%d)",
+		return _snwprintf(buffer, count, L"[bitmap: %dx%dx%d bit  (%d)] size:%d (%d/%d)",
 			pbmi->biWidth,
 			pbmi->biHeight,
 			pbmi->biBitCount,
@@ -45,7 +45,7 @@ int DisplayBITMAPINFO(char *buffer, size_t count, const BITMAPINFOHEADER* pbmi)
 	else {
 		// TOOD cant test the biCompression oddity and compiler complains
 		//return snprintf(buffer, count, "[bitmap: %dx%dx%d bit '%4.4hx' size:%d (%d/%d)",
-		return snprintf(buffer, count, "[bitmap: %dx%dx%d bit '?' size:%d (%d/%d)",
+		return _snwprintf(buffer, count, L"[bitmap: %dx%dx%d bit '?' size:%d (%d/%d)",
 			pbmi->biWidth,
 			pbmi->biHeight,
 			pbmi->biBitCount,
@@ -56,20 +56,20 @@ int DisplayBITMAPINFO(char *buffer, size_t count, const BITMAPINFOHEADER* pbmi)
 	}
 }
 
-int sprintf_pmt(char *buffer, size_t count, char *label, const AM_MEDIA_TYPE *pmtIn)
+int sprintf_pmt(wchar_t *buffer, size_t count, char *label, const AM_MEDIA_TYPE *pmtIn)
 {
 	int cnt = 0;
 
-	cnt += snprintf(&buffer[cnt], count - cnt, "%s -", label);
+	cnt += _snwprintf(&buffer[cnt], count - cnt, L"%S -", label);
 
 	// char * temporalCompression = (pmtIn->bTemporalCompression) ? "Temporally compressed" : "Not temporally compressed";
 	// cnt += snprintf(&buffer[cnt], count - cnt, " [%s]", temporalCompression);
 
 	if (pmtIn->bFixedSizeSamples) {
-		cnt += snprintf(&buffer[cnt], count - cnt, " [Sample Size %d]", pmtIn->lSampleSize);
+		cnt += _snwprintf(&buffer[cnt], count - cnt, L" [Sample Size %d]", pmtIn->lSampleSize);
 	}
 	else {
-		cnt += snprintf(&buffer[cnt], count - cnt, " [Variable size samples]");
+		cnt += _snwprintf(&buffer[cnt], count - cnt, L" [Variable size samples]");
 	}
 
 	WCHAR major_uuid[64];
@@ -105,35 +105,43 @@ int sprintf_pmt(char *buffer, size_t count, char *label, const AM_MEDIA_TYPE *pm
 	else {
 		WCHAR format_uuid[64];
 		StringFromGUID2(pmtIn->formattype, format_uuid, 64);
-		cnt += snprintf(&buffer[cnt], count - cnt, " Format type %S", format_uuid);
+		cnt += _snwprintf(&buffer[cnt], count - cnt, L" Format type %ls", format_uuid);
 	}
 	return cnt;
+}
+
+void debug_pmt(char* label, const AM_MEDIA_TYPE *pmtIn)
+{
+	const int SIZE = 10 * 4096;
+	wchar_t buffer[SIZE];
+	sprintf_pmt(buffer, SIZE, label, pmtIn);
+	debug("%ls", buffer);
 }
 
 void info_pmt(char* label, const AM_MEDIA_TYPE *pmtIn)
 {
 	const int SIZE = 10 * 4096;
-	char buffer[SIZE];
+	wchar_t buffer[SIZE];
 	sprintf_pmt(buffer, SIZE, label, pmtIn);
-	info(buffer);
+	info("%ls", buffer);
 }
 
 void error_pmt(char* label, const AM_MEDIA_TYPE *pmtIn)
 {
 
 	const int SIZE = 10 * 4096;
-	char buffer[SIZE];
+	wchar_t buffer[SIZE];
 	sprintf_pmt(buffer, SIZE, label, pmtIn);
-	error(buffer);
+	error("%ls", buffer);
 }
 
 void warn_pmt(char* label, const AM_MEDIA_TYPE *pmtIn)
 {
 
 	const int SIZE = 10 * 4096;
-	char buffer[SIZE];
+	wchar_t buffer[SIZE];
 	sprintf_pmt(buffer, SIZE, label, pmtIn);
-	warn(buffer);
+	warn("%ls", buffer);
 }
 
 //
@@ -178,10 +186,10 @@ HRESULT CPushPinDesktop::CheckMediaType(const CMediaType *pMediaType)
 
 #if 0
 	// graphedit comes in with a really large one and then we set it (no good)
-	if (pvi->bmiHeader.biHeight > m_iCaptureConfigHeight || pvi->bmiHeader.biWidth > m_iCaptureConfigWidth) {
+	if (pvi->bmiHeader.biHeight > height_ || pvi->bmiHeader.biWidth > width_) {
 		warn("CheckMediaType - E_INVALIDARG %d > %d || %d > %d",
-			pvi->bmiHeader.biHeight, m_iCaptureConfigHeight,
-			pvi->bmiHeader.biWidth, m_iCaptureConfigWidth);
+			pvi->bmiHeader.biHeight, height_,
+			pvi->bmiHeader.biWidth, width_);
 		return E_INVALIDARG;
 	}
 #endif
@@ -230,7 +238,7 @@ HRESULT CPushPinDesktop::CheckMediaType(const CMediaType *pMediaType)
 		}
 		else {
 			// FIXME: this always shows up, so setting to info instead of warn
-			info("CheckMediaType - VFW_E_TYPE_NOT_ACCEPTED format already set to different type");
+			// info("CheckMediaType - VFW_E_TYPE_NOT_ACCEPTED format already set to different type");
 			return VFW_E_TYPE_NOT_ACCEPTED;
 		}
 	}
@@ -248,8 +256,8 @@ HRESULT CPushPinDesktop::CheckMediaType(const CMediaType *pMediaType)
 		return E_INVALIDARG;
 	}
 
-	m_iCaptureConfigWidth = pvi->bmiHeader.biWidth;
-	m_iCaptureConfigHeight = pvi->bmiHeader.biHeight;
+	width_ = pvi->bmiHeader.biWidth;
+	height_ = pvi->bmiHeader.biHeight;
 
 	// info("%s - AvgTimePerFrame %lld", __func__, (UNITS / pvi->AvgTimePerFrame));
 	// set_fps(&game_context, m_rtFrameLength * 100);
@@ -494,14 +502,14 @@ HRESULT STDMETHODCALLTYPE CPushPinDesktop::GetStreamCaps(int iIndex, AM_MEDIA_TY
 
 	{
 		static bool stop_logging = false;
-		if (iIndex == 8) {
+		if (iIndex == PIN_RESOLUTION_SIZE - 1) {
 			stop_logging = true;
 		}
 
 		if (!stop_logging) {
 			char debug_buffer[1024];
 			snprintf(debug_buffer, 1024, "GetStreamCaps S_OK p:%d", iIndex);
-			info_pmt(debug_buffer, *pmt);
+			debug_pmt(debug_buffer, *pmt);
 		}
 	}
 
@@ -542,7 +550,7 @@ HRESULT CGameCapture::GetState(DWORD dw, FILTER_STATE *pState)
 {
 	CheckPointer(pState, E_POINTER);
 	*pState = m_State;
-	info("GetState: %d %s", m_State, m_State == State_Paused ? "VFS_S_CANT_CUE" : "S_OK");
+	info("GetState: %d %S", m_State, m_State == State_Paused ? "VFS_S_CANT_CUE" : "S_OK");
 	if (m_State == State_Paused)
 		return VFW_S_CANT_CUE;
 	else

@@ -31,7 +31,6 @@ const REFERENCE_TIME FPS_1  = UNITS / 1;
 */
 
 // Filter name strings
-#define g_wszPushDesktop    L"Bebo Game Capture Filter"
 typedef unsigned __int64 QWORD;
 
 const int CAPTURE_INJECT = 0;
@@ -48,7 +47,7 @@ class CGameCapture : public CSource // public IAMFilterMiscFlags // CSource is C
 
 private:
     // Constructor is private because you have to use CreateInstance
-    CGameCapture(IUnknown *pUnk, HRESULT *phr);
+    CGameCapture(IUnknown *pUnk, HRESULT *phr, const CLSID* filter_clsid, int capture_type);
     ~CGameCapture();
 
     CPushPinDesktop *m_pPin;
@@ -56,7 +55,13 @@ public:
     //////////////////////////////////////////////////////////////////////////
     //  IUnknown
     //////////////////////////////////////////////////////////////////////////
-    static CUnknown * WINAPI CreateInstance(LPUNKNOWN lpunk, HRESULT *phr);
+    static CUnknown * WINAPI CreateInstance(LPUNKNOWN lpunk, HRESULT *phr, const CLSID* filter_clsid, int capture_type);
+	static CUnknown * WINAPI CreateInstanceInject(LPUNKNOWN lpunk,  HRESULT *phr);
+	static CUnknown * WINAPI CreateInstanceWindow(LPUNKNOWN lpunk,  HRESULT *phr);
+	static CUnknown * WINAPI CreateInstanceScreen(LPUNKNOWN lpunk,  HRESULT *phr);
+
+
+
     STDMETHODIMP QueryInterface(REFIID riid, void **ppv);
 
 	// ?? compiler error that these be required here? huh?
@@ -99,11 +104,14 @@ protected:
 	game_capture_config * config;
     void * game_context;
 
-	int m_iCaptureConfigWidth;
-	int m_iCaptureConfigHeight;
-	LPWSTR m_pCaptureWindowName;
-	LPWSTR m_pCaptureWindowClassName;
-	LPWSTR m_pCaptureExeFullName;
+	int width_;
+	int height_;
+	std::wstring typeName_;
+	std::wstring id_;
+	std::wstring label_;
+	LPWSTR windowName_;
+	LPWSTR windowClassName_;
+	LPWSTR exeFullName_;
 
 	HANDLE init_hooks_thread;
 
@@ -113,22 +121,25 @@ protected:
 	GDICapture* m_pGDICapture;
 
 	bool m_bFormatAlreadySet;
-	bool m_bCaptureOnce;
+	bool once_;
 	volatile bool active;
-	bool m_bCaptureAntiCheat;
+	bool antiCheat_;
+	bool isBlackFrame;
+	bool threadCreated;
 
 	float GetFps();
 	float GetMaxFps() { return MAX_FPS; };
 	void ProcessRegistryReadEvent(long timeout);
 
-	int m_iCaptureType;
+	int type_;
 	int m_iDesktopNumber;
 	int m_iDesktopAdapterNumber;
 	int getCaptureDesiredFinalWidth();
 	int getCaptureDesiredFinalHeight();
 
 	HANDLE readRegistryEvent;
-	QWORD m_iCaptureHandle;
+	QWORD windowHandle_;
+	UINT64 blackFrameCount;
 
 public:
 	
@@ -137,7 +148,6 @@ public:
 	HRESULT OnThreadDestroy(void);
 	HRESULT OnThreadStartPlay(void);
 	int GetGameFromRegistry(void);
-	int GetConstraintsFromRegistry(void);
 	void CleanupCapture();
 	HRESULT Inactive(void);
 	HRESULT Active(void);
@@ -159,13 +169,13 @@ public:
     HRESULT STDMETHODCALLTYPE GetNumberOfCapabilities(int *piCount, int *piSize);
     HRESULT STDMETHODCALLTYPE GetStreamCaps(int iIndex, AM_MEDIA_TYPE **pmt, BYTE *pSCC);
 
-    CPushPinDesktop(HRESULT *phr, CGameCapture *pFilter);
+    CPushPinDesktop(HRESULT *phr, CGameCapture *filter, int capture_type);
     ~CPushPinDesktop();
 
     // Override the version that offers exactly one media type
     HRESULT DecideBufferSize(IMemAllocator *pAlloc, ALLOCATOR_PROPERTIES *pRequest);
     HRESULT FillBuffer(IMediaSample *pSample);
-
+    HRESULT FillBuffer_Inject(IMediaSample *pSample);
     HRESULT FillBuffer_Desktop(IMediaSample *pSample);
     HRESULT FillBuffer_GDI(IMediaSample *pSample);
 

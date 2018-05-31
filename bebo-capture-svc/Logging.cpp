@@ -1,6 +1,7 @@
 #include "Logging.h"
 #include "windows.h"
 #include "registry.h"
+#include "names_and_ids.h"
 
 #define SIZE 2048
 
@@ -18,7 +19,7 @@ void getLogsPath(CHAR *filename) {
 	if (registry.HasValue(L"Logs")) {
 		std::wstring data;
 		registry.ReadValue(L"Logs", &data);
-		wsprintfA(filename, "%S\\", data.c_str());
+		wsprintfA(filename, "%ls\\", data.c_str());
 	} else {
 		GetTempPathA(SIZE, filename);
 	}
@@ -81,7 +82,7 @@ void setupLogging() {
 		CHAR *c_filename = new CHAR[SIZE];
 		getLogsPath(c_filename);
 
-		std::unique_ptr<g2LogWorker> g2log(new g2LogWorker("sarlacc", c_filename));
+		std::unique_ptr<g2LogWorker> g2log(new g2LogWorker(DS_LOG_NAME, c_filename));
 		logworker = std::move(g2log);
 		g2::initializeLogging(&*logworker);
 		wchar_t dllfilename[4096];
@@ -90,7 +91,7 @@ void setupLogging() {
 
 		wchar_t filename[4096];
 		GetModuleFileName(NULL, filename, 4096);
-		info("Executable: %S", filename);
+		info("Executable: %ls", filename);
 
 		delete[] c_filename;
 	}

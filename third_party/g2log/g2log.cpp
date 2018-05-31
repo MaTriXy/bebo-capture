@@ -28,6 +28,7 @@
 #include <chrono>
 #include <signal.h>
 #include <thread>
+#include <windows.h>
 
 #include "g2logworker.h"
 #include "crashhandler.h"
@@ -37,7 +38,7 @@ std::once_flag g_initialize_flag;
 g2LogWorker* g_logger_instance = nullptr; // instantiated and OWNED somewhere else (main)
 std::mutex g_logging_init_mutex;
 
-g2::internal::LogEntry g_first_unintialized_msg = {"", 0};
+g2::internal::LogEntry g_first_unintialized_msg = {"", std::chrono::high_resolution_clock::now()};
 std::once_flag g_set_first_uninitialized_flag;
 std::once_flag g_save_first_unintialized_flag;
 
@@ -65,7 +66,7 @@ void saveToLogger(const g2::internal::LogEntry& log_entry) {
       std::string err("LOGGER NOT INITIALIZED: " + log_entry.msg_);
       std::call_once(g_set_first_uninitialized_flag,
                      [&] { g_first_unintialized_msg.msg_ += err;
-                           g_first_unintialized_msg.timestamp_ = g2::internal::systemtime_now();
+                           g_first_unintialized_msg.timestamp_ = std::chrono::high_resolution_clock::now();
                          });
       // dump to std::err all the non-initialized logs
       std::cerr << err << std::endl;
@@ -125,12 +126,9 @@ bool shutDownLoggingForActiveOnly(g2LogWorker* active) {
 
 namespace internal {
 
-/// returns timepoint as std::time_t
-std::time_t systemtime_now() {
-   const auto now = std::chrono::system_clock::now();
-   return std::chrono::system_clock::to_time_t(now);
+g2::high_resolution_time_point highresolution_clock_now() {
+   return std::chrono::high_resolution_clock::now();
 }
-
 
 bool isLoggingInitialized() {
    return g_logger_instance != nullptr;
@@ -191,7 +189,7 @@ LogMessage::LogMessage(const std::string& file, const int line, const std::strin
    , line_(line)
    , function_(function)
    , level_(level)
-   , timestamp_(systemtime_now())
+   , timestamp_(std::chrono::high_resolution_clock::now())
 {}
 
 
@@ -252,19 +250,23 @@ FatalTrigger::~FatalTrigger() {
 
 
 
-void LogMessage::messageSave(const char* printf_like_message, ...) {
-   char finished_message[kMaxMessageSize];
+void LogMessage::messageSave(const wchar_t* printf_like_message, ...) {
+   wchar_t finished_message[kMaxMessageSize];
    va_list arglist;
    va_start(arglist, printf_like_message);
-   const int nbrcharacters = vsnprintf(finished_message, sizeof(finished_message), printf_like_message, arglist);
+   const int nbrcharacters = _vsnwprintf(finished_message, sizeof(finished_message), printf_like_message, arglist);
    va_end(arglist);
+
    if (nbrcharacters <= 0) {
-      stream_ << "\n\tERROR LOG MSG NOTIFICATION: Failure to parse successfully the message";
-      stream_ << '"' << printf_like_message << '"' << std::endl;
+	   stream_ << "\n\tERROR LOG MSG NOTIFICATION: Failure to parse successfully the message";
+	   stream_ << '"' << printf_like_message << '"' << std::endl;
    } else if (nbrcharacters > kMaxMessageSize) {
-      stream_  << finished_message << kTruncatedWarningText;
+	   stream_ << finished_message << kTruncatedWarningText;
    } else {
-      stream_ << finished_message;
+	   char data[kMaxMessageSize] = { 0 };
+	   int datasize;
+	   datasize = WideCharToMultiByte(CP_UTF8, 0, finished_message, kMaxMessageSize, data, kMaxMessageSize, NULL, NULL);
+	   stream_ << data;
    }
 }
 

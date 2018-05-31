@@ -2,11 +2,12 @@
 #include "BeboCapture.h"
 #include "IBeboCapture_i.c"
 #include "combase.h"
+#include "Capture.h"
 
 #include "Logging.h"
 
 HRESULT CBeboCapture::SetTarget(long size, unsigned char * targetName) {
-	info("setTargetName %s", targetName);
+	info("setTargetName %S", targetName);
 	return S_OK;
 }
 

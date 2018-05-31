@@ -27,6 +27,7 @@
 #include <chrono>
 #include <functional>
 #include <ctime>
+#include "g2time.h"
 
 class g2LogWorker;
 
@@ -36,7 +37,7 @@ class g2LogWorker;
 
 
 // Levels for logging, made so that it would be easy to change, remove, add levels -- KjellKod
-const int DEBUG = 0, INFO = 1, WARNING = 2, FATAL = 3;
+const int DEBUG = 0, INFO = 1, WARNING = 2, ERR = 3, FATAL = 4;
 static const std::string k_fatal_log_expression = ""; // using LogContractMessage but no boolean expression
 
 // GCC Predefined macros: http://gcc.gnu.org/onlinedocs/cpp/Standard-Predefined-Macros.html
@@ -53,6 +54,7 @@ static const std::string k_fatal_log_expression = ""; // using LogContractMessag
 #define G2_LOG_INFO  g2::internal::LogMessage(__FILE__,__LINE__,__PRETTY_FUNCTION__,"INFO")
 #define G2_LOG_WARNING  g2::internal::LogMessage(__FILE__,__LINE__,__PRETTY_FUNCTION__,"WARNING")
 #define G2_LOG_WARN  g2::internal::LogMessage(__FILE__,__LINE__,__PRETTY_FUNCTION__,"WARNING")
+#define G2_LOG_ERR  g2::internal::LogMessage(__FILE__,__LINE__,__PRETTY_FUNCTION__,"ERROR")
 #define G2_LOG_FATAL  g2::internal::LogContractMessage(__FILE__,__LINE__,__PRETTY_FUNCTION__,k_fatal_log_expression)
 
 // LOG(level) is the API for the stream log
@@ -122,6 +124,7 @@ And here is possible output
 #define G2_LOGF_INFO     g2::internal::LogMessage(__FILE__, __LINE__, __PRETTY_FUNCTION__,"INFO")
 #define G2_LOGF_DEBUG    g2::internal::LogMessage(__FILE__, __LINE__, __PRETTY_FUNCTION__,"DEBUG")
 #define G2_LOGF_WARNING  g2::internal::LogMessage(__FILE__, __LINE__, __PRETTY_FUNCTION__,"WARNING")
+#define G2_LOGF_ERR		 g2::internal::LogMessage(__FILE__, __LINE__, __PRETTY_FUNCTION__,"ERROR")
 #define G2_LOGF_FATAL    g2::internal::LogContractMessage(__FILE__, __LINE__, __PRETTY_FUNCTION__,k_fatal_log_expression)
 
 // LOGF(level,msg,...) is the API for the "printf" like log
@@ -169,12 +172,10 @@ bool shutDownLoggingForActiveOnly(g2LogWorker* active);
 // defined here but should't not have to be used outside the g2log
 namespace internal {
 
-/// returns timepoint as std::time_t
-std::time_t systemtime_now();
-
+g2::high_resolution_time_point highresolution_clock_now();
 
 struct LogEntry {
-   LogEntry(std::string msg, std::time_t timestamp) : msg_(msg), timestamp_(timestamp) {}
+   LogEntry(std::string msg, g2::high_resolution_time_point timestamp) : msg_(msg), timestamp_(timestamp) {}
    LogEntry(const LogEntry& other): msg_(other.msg_), timestamp_(other.timestamp_) {}
    LogEntry& operator=(const LogEntry& other) {
       msg_ = other.msg_;
@@ -184,7 +185,7 @@ struct LogEntry {
 
 
    std::string msg_;
-   std::time_t timestamp_;
+   g2::high_resolution_time_point timestamp_;
 };
 
 bool isLoggingInitialized();
@@ -230,7 +231,7 @@ class LogMessage {
    // Coder note: Since it's C++ and not C EVERY CLASS FUNCTION always get a first
    // compiler given argument 'this' this must be supplied as well, hence '2,3'
    // ref: http://www.codemaestro.com/reviews/18 -- ref KjellKod
-   void messageSave(const char* printf_like_message, ...)
+   void messageSave(const wchar_t* printf_like_message, ...)
    __attribute__((format(printf, 2, 3) ));
 
  protected:
@@ -240,7 +241,7 @@ class LogMessage {
    const std::string level_;
    std::ostringstream stream_;
    std::string log_entry_;
-   std::time_t timestamp_;
+   g2::high_resolution_time_point timestamp_;
 };
 
 

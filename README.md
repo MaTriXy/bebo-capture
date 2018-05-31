@@ -28,9 +28,29 @@ regsvr32 BeboGameCapture.DLL
  * "desktop" -> DXGI Desktop Duplication API
  * "inject" -> graphics hook injection
  * "gdi" -> gdi
- * "dshow" -> libdshow
 
  - defaults to "inject" for backwards compatibility
+
+### Capture Game (inject)
+```
+  WCHAR type = "inject"
+  WCHAR windowClassName = "TankWindow"
+  WCHAR windowName = "Overwatch"
+  DWORD antiCheat = 1
+
+```
+
+### Capture window using GDI
+```
+  WCHAR type = "gdi"
+  WCHAR label = "My Favorite window"
+  QWORD windowHandle = "0xdeadbeefdeadbeef"
+  WCHAR windowClassName = "TankWindow"
+  WCHAR windowName = "Overwatch"
+  WCHAR exeFullName = "C:\\Program Files(x86)\\whatever\\overwatch.exe"
+  DWORD once = 0
+```
+
 
 ## libyuv (notes)
 
@@ -55,9 +75,9 @@ find libyuv_internal.lib and the include directory
 
 # Attributions / History
 
-* Really we want to use Chrome / NW.JS and webRTC to capture all games, but
-  there are some caveats, so we built this for now until webrtc game capture
-  support is seamless and complete
+* Really we want to use Chrome / chromium / NW.JS and webRTC to capture all
+  games, but there are some caveats, so we built this for now until webrtc game
+  capture support is seamless and complete
 * We started this code based on the Direct Show Desktop Capture Filter:
   https://github.com/rdp/screen-capture-recorder-to-video-windows-free
 * OBS https://obsproject.com is awesome at capturing the frames from a game,
@@ -65,6 +85,7 @@ find libyuv_internal.lib and the include directory
 * All direct show filters make heavy use of the Micosoft DirectShow SDK
   BaseClasses
 * We use the super fast g2log by Kjell Hedstroem for logging
+* We use several of the chromium base classes / infrastructure
 
 # License
 
@@ -75,3 +96,13 @@ Different parts of the project are under different licenses depending on their
 respective origin.
 
 For the full text of the licenses see: LICENSE.TXT
+antiCheat
+exeFullName
+fps
+id
+label
+once
+type
+windowClassName
+windowHandle
+windowName

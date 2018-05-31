@@ -32,7 +32,7 @@ using namespace g2::internal;
 
 namespace {
 static const std::string date_formatted = "%Y-%m-%d";
-static const std::string time_formatted = "%H:%M:%S";
+static const std::string time_formatted = "%H:%M:%S.%f6";
 static const std::string file_name_time_formatted =  "%Y%m%d-%H%M%S";
 
 // check for filename validity -  filename should not be part of PATH
@@ -93,7 +93,7 @@ std::string createLogFileName(const std::string& verified_prefix) {
    std::stringstream oss_name;
    oss_name.fill('0');
    oss_name << verified_prefix << ".g2log.";
-   oss_name << g2::gmtime_formatted(g2::systemtime_now(), file_name_time_formatted);
+   oss_name << g2::gmtime_formatted_now(file_name_time_formatted);
    oss_name << ".log";
    return oss_name.str();
 }
@@ -111,11 +111,6 @@ bool openLogFile(const std::string& complete_file_with_path, std::ofstream& outs
       outstream.close();
       return false;
    }
-   std::ostringstream ss_entry;
-   ss_entry << "g2log created log file at: " << g2::gmtime_formatted(g2::systemtime_now(), "%Y-%m-%dT%H:%M:%S") << "\n";
-   ss_entry << "LOG format: [%Y-%m-%dT%H:%M:%S.mmm  LEVEL FILE:LINE] message\n\n"; 
-   outstream << ss_entry.str() << std::flush;
-   outstream.fill('0');
    return true;
 }
 
@@ -188,7 +183,7 @@ g2LogWorkerImpl::g2LogWorkerImpl(const std::string& log_prefix, const std::strin
 g2LogWorkerImpl::~g2LogWorkerImpl() {
    std::ostringstream ss_exit;
    bg_.reset(); // flush the log queue
-   ss_exit << "\ng2log file shutdown at: " << g2::gmtime_formatted(g2::systemtime_now(), time_formatted);
+   ss_exit << "\ng2log file shutdown at: " << g2::gmtime_formatted_now(time_formatted);
    filestream() << ss_exit.str() << std::flush;
 }
 
@@ -197,17 +192,16 @@ void g2LogWorkerImpl::backgroundFileWrite(LogEntry message) {
    using namespace std;
    std::ofstream& out(filestream());
    auto log_time = message.timestamp_;
-   auto clock_time = std::chrono::system_clock::now();
+   auto steady_time = std::chrono::steady_clock::now();
    out << "\n" << g2::gmtime_formatted(log_time, date_formatted);
    out << "T" << g2::gmtime_formatted(log_time, time_formatted);
-   out << "." << std::setw(3) << std::setfill('0') << clock_time.time_since_epoch().count() % 1000;
    out << "Z\t" << message.msg_ << std::flush;
 }
 
 
 void g2LogWorkerImpl::backgroundExitFatal(FatalMessage fatal_message) {
    backgroundFileWrite(fatal_message.message_);
-   LogEntry flushEntry{"Log flushed successfully to disk \nExiting", g2::internal::systemtime_now()};
+   LogEntry flushEntry{"Log flushed successfully to disk \nExiting", g2::internal::highresolution_clock_now()};
    backgroundFileWrite(flushEntry);
    std::cerr << "g2log exiting after receiving fatal event" << std::endl;
    std::cerr << "Log file at: [" << log_file_with_path_ << "]\n" << std::endl << std::flush;
@@ -223,7 +217,7 @@ std::string g2LogWorkerImpl::backgroundChangeLogFile(const std::string& director
    std::string prospect_log = directory + file_name;
    std::unique_ptr<std::ofstream> log_stream = createLogFile(prospect_log);
    if (nullptr == log_stream) {
-      LogEntry error("Unable to change log file. Illegal filename or busy? Unsuccessful log name was:" + prospect_log, g2::internal::systemtime_now());
+      LogEntry error("Unable to change log file. Illegal filename or busy? Unsuccessful log name was:" + prospect_log, g2::internal::highresolution_clock_now());
       backgroundFileWrite(error);
 
       return ""; // no success
@@ -232,7 +226,7 @@ std::string g2LogWorkerImpl::backgroundChangeLogFile(const std::string& director
    std::ostringstream ss_change;
    ss_change << "Changing log file from : " << log_file_with_path_;
    ss_change << "\tto new location: " << prospect_log << "\n";
-   backgroundFileWrite({ss_change.str().c_str(), g2::internal::systemtime_now()});
+   backgroundFileWrite({ss_change.str().c_str(), g2::internal::highresolution_clock_now()});
    ss_change.str("");
 
    // setting the new log as active
@@ -241,7 +235,7 @@ std::string g2LogWorkerImpl::backgroundChangeLogFile(const std::string& director
    outptr_ = std::move(log_stream);
    ss_change << "New log file. The previous log file was at: ";
    ss_change << old_log;
-   backgroundFileWrite({ss_change.str(), g2::internal::systemtime_now()});
+   backgroundFileWrite({ss_change.str(), g2::internal::highresolution_clock_now()});
    return log_file_with_path_;
 }
 

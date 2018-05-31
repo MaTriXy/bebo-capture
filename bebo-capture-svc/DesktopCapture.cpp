@@ -3,34 +3,33 @@
 using namespace DirectX;
 
 #include "Logging.h"
-#include <comdef.h>
 #include <dshow.h>
 #include <strsafe.h>
 #include <tchar.h>
 #include <windows.h>
 #include <dxgi.h>
-#include "graphics-hook-info.h"
-#include "bmem.h"
-#include "dstr.h"
-#include "app-helpers.h"
-#include "platform.h"
-#include "threading.h"
-#include "obfuscate.h"
-#include "nt-stuff.h"
-#include "inject-library.h"
-#include "DibHelper.h"
-#include "window-helpers.h"
 #include "libyuv/convert.h"
 #include "libyuv/scale_argb.h"
 #include "CommonTypes.h"
 
-#define STOP_BEING_BAD \
-	    "This is most likely due to security software" \
-        "that the Bebo Capture installation folder is excluded/ignored in the " \
-        "settings of the security software you are using."
 
-struct desktop_capture {
-};
+void error_hr(const char *message, HRESULT errorNumber) {
+	const wchar_t *errorMessage;
+	DWORD nLen = FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_MAX_WIDTH_MASK,
+		NULL,
+		errorNumber,
+		MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+		(LPTSTR)&errorMessage,
+		0,
+		NULL);
+
+	if (nLen == 0) {
+		error("%S. 0x%08x - Unknown error.", message, errorNumber);
+	}else {
+		error("%S. 0x%08x - %ls", message, errorNumber, errorMessage);
+	}
+	HeapFree(GetProcessHeap(), HEAP_NO_SERIALIZE, (LPVOID)errorMessage);
+}
 
 DesktopCapture::DesktopCapture() : m_Device(nullptr),
 	m_DeviceContext(nullptr),
@@ -131,29 +130,27 @@ void DesktopCapture::CleanRefs()
 //
 void DesktopCapture::Init(int adapterId, int desktopId, int width, int height)
 {
-	m_iAdapterNumber = adapterId;
-	m_iDesktopNumber = desktopId;
-	m_negotiatedWidth = width;
-	m_negotiatedHeight = height;
-	m_Initialized = true;
+    m_iAdapterNumber = adapterId;
+    m_iDesktopNumber = desktopId;
+    m_negotiatedWidth = width;
+    m_negotiatedHeight = height;
 
-	if (m_negotiatedArgbBuffer) {
-		delete[] m_negotiatedArgbBuffer;
-	}
-	m_negotiatedArgbBuffer = new BYTE[4 * m_negotiatedWidth * m_negotiatedHeight];
+    if (m_negotiatedArgbBuffer) {
+        delete[] m_negotiatedArgbBuffer;
+    }
+    m_negotiatedArgbBuffer = new BYTE[4 * m_negotiatedWidth * m_negotiatedHeight];
 
-	HRESULT hr = InitializeDXResources();
+    HRESULT hr = InitializeDXResources();
 
-	if (SUCCEEDED(hr)) {
-		hr = InitDuplication();
-	}
+    if (SUCCEEDED(hr)) {
+        hr = InitDuplication();
+    }
 
-	if (FAILED(hr)) {
-		m_Initialized = false;
+    m_Initialized = SUCCEEDED(hr);
 
-		_com_error err(hr);
-		error("Failed to initialize duplication. 0x%08x - %S", hr, err.ErrorMessage());
-	}
+    if (FAILED(hr)) {
+        error_hr("Failed to initialize duplication", hr);
+    }
 }
 
 HRESULT DesktopCapture::InitializeDXResources() {
@@ -199,9 +196,8 @@ HRESULT DesktopCapture::InitializeDXResources() {
 
 	if (FAILED(hr))
 	{
-		_com_error err(hr);
-		error("Failed to create device in Initialize DX. 0x%08x - %S", hr, err.ErrorMessage());
-		return E_FAIL;
+		error_hr("Failed to create device in Initialize DX", hr);
+		return hr;
 	}
 
     m_Device->AddRef();
@@ -216,8 +212,7 @@ HRESULT DesktopCapture::InitDuplication() {
 	hr = m_Device->QueryInterface(__uuidof(IDXGIDevice), reinterpret_cast<void**>(&DxgiDevice));
 	if (FAILED(hr))
 	{
-		_com_error err(hr);
-		error("Failed to QI for DXGI Device. 0x%08x - %S", hr, err.ErrorMessage());
+		error_hr("Failed to QI for DXGI Device", hr);
 		return hr;
 	}
 
@@ -227,8 +222,7 @@ HRESULT DesktopCapture::InitDuplication() {
 	DxgiDevice = nullptr;
 	if (FAILED(hr))
 	{
-		_com_error err(hr);
-		error("Failed to get parent DXGI Adapter. 0x%08x - %S", hr, err.ErrorMessage());
+		error_hr("Failed to get parent DXGI Adapter", hr);
 		return hr;
 	}
 
@@ -238,8 +232,7 @@ HRESULT DesktopCapture::InitDuplication() {
 	DxgiAdapter = nullptr;
 	if (FAILED(hr))
 	{ 
-		_com_error err(hr);
-		error("Failed to get parent DXGI DxgiFactory. 0x%08x - %S", hr, err.ErrorMessage());
+		error_hr("Failed to get parent DXGI DxgiFactory", hr);
 		return hr;
 	}
 
@@ -249,8 +242,7 @@ HRESULT DesktopCapture::InitDuplication() {
 	DxgiFactory = nullptr;
 	if (FAILED(hr))
 	{
-		_com_error err(hr);
-		error("Adapter specified to be duplicated does not exist. 0x%08x - %S", hr, err.ErrorMessage());
+		error_hr("Adapter specified to be duplicated does not exist", hr);
 		return hr;
 	}
 
@@ -261,8 +253,7 @@ HRESULT DesktopCapture::InitDuplication() {
 	DxgiActualAdapter = nullptr;
 	if (FAILED(hr))
 	{
-		_com_error err(hr);
-		error("Output specified to be duplicated does not exist. 0x%08x - %S", hr, err.ErrorMessage());
+		error_hr("Output specified to be duplicated does not exist", hr);
 		return hr;
 	}
 
@@ -276,9 +267,8 @@ HRESULT DesktopCapture::InitDuplication() {
 	DxgiOutput = nullptr;
 	if (FAILED(hr))
 	{
-		_com_error err(hr);
-		error("Failed to QI for DxgiOutput1 in DesktopCapture. 0x%08x - %S", hr, err.ErrorMessage());
-		return E_FAIL;
+		error_hr("Failed to QI for DxgiOutput1 in DesktopCapture", hr);
+		return hr;
 	}
 
 	if (m_DeskDupl) {
@@ -295,11 +285,10 @@ HRESULT DesktopCapture::InitDuplication() {
 		if (hr == DXGI_ERROR_NOT_CURRENTLY_AVAILABLE)
 		{
 			error("There is already the maximum number of applications using the Desktop Duplication API running, please close one of those applications and then try again.");
-			return E_FAIL;
+			return hr;
 		}
-		_com_error err(hr);
-		error("Failed to get duplicate output in DesktopCapture. 0x%08x - %S", hr, err.ErrorMessage());
-		return E_FAIL;
+		error_hr("Failed to get duplicate output in DesktopCapture", hr);
+		return hr;
 	}
 
 	D3D11_TEXTURE2D_DESC CopyBufferDesc;
@@ -323,8 +312,7 @@ HRESULT DesktopCapture::InitDuplication() {
 	hr = m_Device->CreateTexture2D(&CopyBufferDesc, nullptr, &m_StagingTexture);
 	if (FAILED(hr))
 	{
-		_com_error err(hr);
-		error("Failed to create staging texture. 0x%08x - %S", hr, err.ErrorMessage());
+		error_hr("Failed to create staging texture", hr);
 		return hr;
 	}
 
@@ -336,8 +324,7 @@ HRESULT DesktopCapture::InitDuplication() {
 	hr = m_StagingTexture->QueryInterface(__uuidof(IDXGISurface), reinterpret_cast<void**>(&m_Surface));
 	if (FAILED(hr))
 	{
-		_com_error err(hr);
-		error("Failed to QI for IDXGI staging texture surface. 0x%08x - %S", hr, err.ErrorMessage());
+		error_hr("Failed to QI for IDXGI staging texture surface", hr);
 		return hr;
 	}
 
@@ -450,7 +437,7 @@ void DesktopCapture::CopyMove(FrameData* data, INT offsetX, INT offsetY)
 		move_desc.MiscFlags = 0;
 		HRESULT hr = m_Device->CreateTexture2D(&move_desc, nullptr, &m_MoveSurf);
 		if (FAILED(hr)) {
-			error("Failed to create staging texture for move rects");
+			error_hr("Failed to create staging texture for move rects", hr);
 			return;
 		}
 	}
@@ -516,9 +503,10 @@ static inline int getI420BufferSize(int width, int height) {
 	return width * height + half_width * half_height * 2;
 }
 
+static uint8_t* copy_frame = new uint8_t[4 * 1920 * 1080];
+
 bool DesktopCapture::PushFrame(IMediaSample* pSample, DesktopFrame* frame) {
-	debug("push frame - frame: %dx%d, negotiated: %dx%d", frame->width(), frame->height(), m_negotiatedWidth, m_negotiatedHeight);
-	if (!frame->data()) {
+	if (!frame->data() || frame->stride() == 0) {
 		warn("push frame - no data");
 		return false;
 	}
@@ -629,7 +617,7 @@ HRESULT DesktopCapture::GetMouse(_Inout_ PtrInfo* PtrInfo, _In_ DXGI_OUTDUPL_FRA
 		delete[] PtrInfo->PtrShapeBuffer;
 		PtrInfo->PtrShapeBuffer = nullptr;
 		PtrInfo->BufferSize = 0;
-		error("Failed to get frame pointer shape in DesktopCapture");
+		error_hr("Failed to get frame pointer shape in DesktopCapture", hr);
 		return E_UNEXPECTED;
 	}
 
@@ -665,8 +653,7 @@ bool DesktopCapture::AcquireNextFrame(DXGI_OUTDUPL_FRAME_INFO * frame, REFERENCE
 		// debug("Failed to acquire next frame - timeout.");
 		return false;
 	} else if (FAILED(hr)) {
-		_com_error err(hr);
-		error("Failed to acquire next frame in DesktopCapture. 0x%08x - %S", hr, err.ErrorMessage());
+		error_hr("Failed to acquire next frame in DesktopCapture", hr);
 		return false;
 	}
 
@@ -682,7 +669,7 @@ bool DesktopCapture::AcquireNextFrame(DXGI_OUTDUPL_FRAME_INFO * frame, REFERENCE
 	desktop_resource = nullptr;
 
 	if (FAILED(hr)) {
-		error("Failed to QI for ID3D11Texture2D from acquired IDXGIResource in DesktopCapture");
+		error_hr("Failed to QI for ID3D11Texture2D from acquired IDXGIResource in DesktopCapture", hr);
 		DoneWithFrame();
 		return false;
 	}
@@ -783,8 +770,8 @@ bool DesktopCapture::GetFrame(IMediaSample *pSample, bool captureMouse, REFERENC
 	m_Surface->GetDesc(&frame_desc);
 
 	m_Surface->Map(&map, D3D11_MAP_READ);
-	m_LastDesktopFrame->updateFrame(frame_desc.Width, frame_desc.Height, map.Pitch, map.pBits);
-	got_frame = PushFrame(pSample, m_LastDesktopFrame);
+    m_LastDesktopFrame->updateFrame(frame_desc.Width, frame_desc.Height, map.Pitch, map.pBits);
+    got_frame = PushFrame(pSample, m_LastDesktopFrame);
 	m_Surface->Unmap();
 
 	DoneWithFrame();
@@ -813,8 +800,7 @@ bool DesktopCapture::DoneWithFrame()
 	HRESULT hr = m_DeskDupl->ReleaseFrame();
 	 
 	if (FAILED(hr)) {
-		_com_error err(hr);
-		error("Failed to release frame. 0x%08x - %S", hr, err.ErrorMessage());
+		error_hr("Failed to release frame", hr);
 	}
 
 	if (hr == DXGI_ERROR_ACCESS_LOST) {
